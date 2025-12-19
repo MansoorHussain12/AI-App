@@ -11,6 +11,10 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Salam Alaikum, Habibi");
 });
 
+app.get("/api/hello", (req: Request, res: Response) => {
+  res.json({ message: "Salam Alaikum, Habibi" });
+});
+
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
