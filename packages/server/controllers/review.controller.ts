@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
 import { reviewService } from '../services/review.service';
+import { productRepository } from '../repositories/product.repository';
+import { reviewRepository } from '../repositories/review.repository';
 
 export const reviewController = {
    async getReviews(req: Request, res: Response) {
@@ -10,9 +12,19 @@ export const reviewController = {
          return;
       }
 
-      const reviews = await reviewService.getReviews(productId);
+      const product = await productRepository.getProduct(productId);
+      if (!product) {
+         res.status(404).json({ error: 'Product does not exist.' });
+         return;
+      }
 
-      res.json(reviews);
+      const reviews = await reviewRepository.getReviews(productId);
+      const summary = await reviewRepository.getReviewSummary(productId);
+
+      res.json({
+         summary,
+         reviews,
+      });
    },
 
    async summarizeReviews(req: Request, res: Response) {
@@ -20,6 +32,18 @@ export const reviewController = {
 
       if (isNaN(productId)) {
          res.status(400).json({ error: 'Invalid product ID.' });
+         return;
+      }
+
+      const product = await productRepository.getProduct(productId);
+      if (!product) {
+         res.status(400).json({ error: 'Invalid product' });
+         return;
+      }
+
+      const review = await reviewRepository.getReviews(productId, 1);
+      if (!review.length) {
+         res.status(400).json({ error: 'There are no reviews to summarize.' });
          return;
       }
 
