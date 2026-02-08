@@ -16,6 +16,7 @@
       "typescript": "^5"
    },
    "dependencies": {
+      "@huggingface/inference": "^4.13.11",
       "@prisma/adapter-mariadb": "^7.3.0",
       "@prisma/client": "^7.3.0",
       "dayjs": "^1.11.19",
