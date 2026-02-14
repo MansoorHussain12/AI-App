@@ -8,9 +8,9 @@ const buckets = new Map<string, Bucket>();
 export function rateLimit(req: AuthRequest, res: Response, next: NextFunction) {
    const key = req.user?.userId ?? req.ip;
    const now = Date.now();
-   const bucket = buckets.get(key);
+   const bucket = buckets.get(key!);
    if (!bucket || bucket.resetAt < now) {
-      buckets.set(key, { count: 1, resetAt: now + 60_000 });
+      buckets.set(key!, { count: 1, resetAt: now + 60_000 });
       return next();
    }
    if (bucket.count >= config.rateLimitPerMinute) {
