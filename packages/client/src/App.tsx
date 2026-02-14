@@ -1,195 +1,201 @@
-import './App.css';
-import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
-
-type User = { username: string; role: 'ADMIN' | 'USER' };
-type DocumentItem = {
-   id: string;
-   title: string;
-   status: string;
-   sourceType: string;
-   ingestionJobs: { progress: number; stage: string; status: string }[];
-};
-
-type Citation = {
-   chunkId: string;
-   title: string;
-   pageOrSlide: string;
-   snippet: string;
-};
-
-const api = axios.create({
-   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000',
-});
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
+import { toast } from 'sonner';
+import {
+   chat,
+   getDocuments,
+   getSettings,
+   healthOllama,
+   healthProvider,
+   login,
+   setAuthToken,
+   uploadDocument,
+} from '@/lib/api';
+import type { Citation, User } from '@/lib/types';
+import { AppShell, type AppTab } from '@/components/layout/AppShell';
+import { LoginCard } from '@/components/auth/LoginCard';
+import { DocumentsPanel } from '@/components/documents/DocumentsPanel';
+import { ChatPanel } from '@/components/chat/ChatPanel';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
 
 function App() {
+   const queryClient = useQueryClient();
    const [token, setToken] = useState(localStorage.getItem('token') ?? '');
    const [user, setUser] = useState<User | null>(null);
-   const [docs, setDocs] = useState<DocumentItem[]>([]);
+   const [activeTab, setActiveTab] = useState<AppTab>('chat');
+   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
    const [question, setQuestion] = useState('');
    const [answer, setAnswer] = useState('');
    const [citations, setCitations] = useState<Citation[]>([]);
-   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
-   const [settings, setSettings] = useState<Record<string, string | number>>(
-      {}
-   );
+   const [loginError, setLoginError] = useState('');
 
-   useEffect(() => {
-      api.defaults.headers.common.Authorization = token
-         ? `Bearer ${token}`
-         : '';
-      if (token) loadDocs();
-   }, [token]);
+   setAuthToken(token);
 
-   async function loadDocs() {
-      const response = await api.get('/api/documents');
-      setDocs(response.data);
-   }
+   const documentsQuery = useQuery({
+      queryKey: ['documents', token],
+      queryFn: getDocuments,
+      enabled: Boolean(token),
+   });
 
-   async function doLogin(formData: FormData) {
-      const username = String(formData.get('username') ?? '');
-      const password = String(formData.get('password') ?? '');
-      const response = await api.post('/api/auth/login', {
-         username,
-         password,
-      });
-      setToken(response.data.token);
-      localStorage.setItem('token', response.data.token);
-      setUser(response.data.user);
-   }
+   const settingsQuery = useQuery({
+      queryKey: ['settings', token],
+      queryFn: getSettings,
+      enabled: false,
+   });
 
-   async function upload(file: File) {
-      const fd = new FormData();
-      fd.append('file', file);
-      await api.post('/api/documents/upload', fd);
-      await loadDocs();
-   }
+   const healthQuery = useQuery({
+      queryKey: ['health-provider'],
+      queryFn: async () => {
+         try {
+            return await healthProvider();
+         } catch {
+            return healthOllama();
+         }
+      },
+      retry: false,
+      refetchInterval: 30000,
+      enabled: Boolean(token),
+   });
 
-   async function chat() {
-      const response = await api.post('/api/chat', {
-         question,
-         docIds: selectedDocs.length ? selectedDocs : undefined,
-      });
-      setAnswer(response.data.answer);
-      setCitations(response.data.citations);
-   }
+   const loginMutation = useMutation({
+      mutationFn: (payload: { username: string; password: string }) =>
+         login(payload.username, payload.password),
+      onSuccess: (data) => {
+         setToken(data.token);
+         setUser(data.user);
+         localStorage.setItem('token', data.token);
+         setLoginError('');
+         toast.success('Logged in successfully');
+      },
+      onError: (error: AxiosError<{ error?: string }>) => {
+         const message = error.response?.data?.error ?? 'Login failed';
+         setLoginError(message);
+         toast.error(message);
+      },
+   });
 
-   async function loadSettings() {
-      const response = await api.get('/api/settings');
-      setSettings(response.data);
-   }
+   const uploadMutation = useMutation({
+      mutationFn: uploadDocument,
+      onSuccess: async () => {
+         toast.success('Upload successful');
+         await queryClient.invalidateQueries({ queryKey: ['documents'] });
+      },
+      onError: () => toast.error('Upload failed'),
+   });
+
+   const chatMutation = useMutation({
+      mutationFn: chat,
+      onSuccess: (data) => {
+         setAnswer(data.answer);
+         setCitations(data.citations);
+      },
+      onError: () => toast.error('Chat failed'),
+   });
+
+   const isAdmin = user?.role === 'ADMIN';
+
+   const providerStatus = healthQuery.data?.ok
+      ? 'healthy'
+      : healthQuery.isFetching
+        ? 'warning'
+        : 'error';
 
    const indexedDocs = useMemo(
-      () => docs.filter((d) => d.status === 'INDEXED'),
-      [docs]
+      () =>
+         (documentsQuery.data ?? []).filter((doc) => doc.status === 'INDEXED'),
+      [documentsQuery.data]
    );
 
    if (!token) {
       return (
-         <main className="container">
-            <h1>Factory RAG Assistant</h1>
-            <form action={doLogin} className="card form">
-               <input
-                  name="username"
-                  placeholder="username"
-                  defaultValue="admin"
-               />
-               <input
-                  name="password"
-                  type="password"
-                  placeholder="password"
-                  defaultValue="admin123"
-               />
-               <button type="submit">Login</button>
-            </form>
-         </main>
+         <LoginCard
+            loading={loginMutation.isPending}
+            error={loginError}
+            onSubmit={async (values) => loginMutation.mutateAsync(values)}
+         />
       );
    }
 
+   const backendError = documentsQuery.isError
+      ? 'Backend not reachable. Check API endpoint in Settings.'
+      : '';
+
    return (
-      <main className="container">
-         <h1>Factory RAG Assistant</h1>
-         <div className="grid">
-            {user?.role === 'ADMIN' && (
-               <section className="card">
-                  <h2>Documents</h2>
-                  <input
-                     type="file"
-                     onChange={(e) =>
-                        e.target.files?.[0] && upload(e.target.files[0])
-                     }
-                  />
-                  <button onClick={loadDocs}>Refresh</button>
-                  <ul>
-                     {docs.map((doc) => (
-                        <li key={doc.id}>
-                           {doc.title} ({doc.sourceType}) - {doc.status}{' '}
-                           {doc.ingestionJobs[0]
-                              ? `[${doc.ingestionJobs[0].stage} ${doc.ingestionJobs[0].progress}%]`
-                              : ''}
-                        </li>
-                     ))}
-                  </ul>
-               </section>
-            )}
-
-            <section className="card">
-               <h2>Chat</h2>
-               <p>Select documents:</p>
-               <div>
-                  {indexedDocs.map((doc) => (
-                     <label key={doc.id}>
-                        <input
-                           type="checkbox"
-                           checked={selectedDocs.includes(doc.id)}
-                           onChange={(e) =>
-                              setSelectedDocs((prev) =>
-                                 e.target.checked
-                                    ? [...prev, doc.id]
-                                    : prev.filter((id) => id !== doc.id)
-                              )
-                           }
-                        />
-                        {doc.title}
-                     </label>
-                  ))}
+      <AppShell
+         activeTab={activeTab}
+         setActiveTab={setActiveTab}
+         isAdmin={isAdmin}
+         providerStatus={providerStatus}
+         onLogout={() => {
+            localStorage.removeItem('token');
+            setToken('');
+            setUser(null);
+            setAnswer('');
+            setCitations([]);
+            toast.message('Logged out');
+         }}
+      >
+         <div className="space-y-4">
+            {backendError ? (
+               <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                  {backendError}
                </div>
-               <textarea
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask a factory question"
-               />
-               <button onClick={chat}>Ask</button>
-               <pre>{answer}</pre>
-               <h3>Sources</h3>
-               <ul>
-                  {citations.map((c) => (
-                     <li key={c.chunkId}>
-                        {c.title} - {c.pageOrSlide}: {c.snippet}
-                     </li>
-                  ))}
-               </ul>
-            </section>
+            ) : null}
 
-            {user?.role === 'ADMIN' && (
-               <section className="card">
-                  <h2>Settings</h2>
-                  <button onClick={loadSettings}>Load settings</button>
-                  <pre>{JSON.stringify(settings, null, 2)}</pre>
-                  <button
-                     onClick={() =>
-                        api
-                           .get('/api/health/ollama')
-                           .then(() => alert('Ollama OK'))
-                           .catch(() => alert('Ollama failed'))
+            {activeTab === 'chat' ? (
+               <ChatPanel
+                  indexedDocs={indexedDocs}
+                  selectedDocs={selectedDocs}
+                  onToggleDoc={(id, checked) =>
+                     setSelectedDocs((prev) =>
+                        checked
+                           ? [...prev, id]
+                           : prev.filter((docId) => docId !== id)
+                     )
+                  }
+                  question={question}
+                  onQuestionChange={setQuestion}
+                  onAsk={() =>
+                     chatMutation.mutate({
+                        question,
+                        docIds: selectedDocs.length ? selectedDocs : undefined,
+                     })
+                  }
+                  asking={chatMutation.isPending}
+                  answer={answer}
+                  citations={citations}
+               />
+            ) : null}
+
+            {activeTab === 'documents' && isAdmin ? (
+               <DocumentsPanel
+                  docs={documentsQuery.data ?? []}
+                  loading={documentsQuery.isFetching}
+                  uploading={uploadMutation.isPending}
+                  onUpload={(file) => uploadMutation.mutate(file)}
+                  onRefresh={() => documentsQuery.refetch()}
+               />
+            ) : null}
+
+            {activeTab === 'settings' && isAdmin ? (
+               <SettingsPanel
+                  settings={settingsQuery.data}
+                  settingsLoading={settingsQuery.isFetching}
+                  onLoadSettings={() => void settingsQuery.refetch()}
+                  onTestConnectivity={async () => {
+                     try {
+                        await healthQuery.refetch();
+                        toast.success('Connectivity OK');
+                     } catch {
+                        toast.error('Connectivity test failed');
                      }
-                  >
-                     Test Ollama Connectivity
-                  </button>
-               </section>
-            )}
+                  }}
+                  health={healthQuery.data}
+               />
+            ) : null}
          </div>
-      </main>
+      </AppShell>
    );
 }
 

@@ -5,6 +5,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -35,7 +36,6 @@ model User {
   sessions     ChatSession[]
   messages     ChatMessage[]
   auditLogs    AuditLog[]
-  documents    Document[]
 }
 
 model Document {
@@ -56,28 +56,28 @@ model Document {
 }
 
 model DocumentChunk {
-  id             String   @id @default(cuid())
-  documentId     String
-  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  chunkIndex     Int
-  content        String
-  embedding      String
-  pageNumber     Int?
-  slideNumber    Int?
+  id           String   @id @default(cuid())
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex   Int
+  content      String
+  embedding    String
+  pageNumber   Int?
+  slideNumber  Int?
   sectionHeading String?
-  createdAt      DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   @@index([documentId, chunkIndex])
 }
 
 model ChatSession {
-  id        String        @id @default(cuid())
-  title     String?
-  userId    String
-  user      User          @relation(fields: [userId], references: [id])
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  messages  ChatMessage[]
+  id         String        @id @default(cuid())
+  title      String?
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  messages   ChatMessage[]
 }
 
 model ChatMessage {
@@ -93,22 +93,22 @@ model ChatMessage {
 }
 
 model IngestionJob {
-  id         String    @id @default(cuid())
-  documentId String
-  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  status     JobStatus @default(PENDING)
-  progress   Int       @default(0)
-  stage      String    @default("QUEUED")
-  error      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  documentId  String
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  status      JobStatus @default(PENDING)
+  progress    Int       @default(0)
+  stage       String    @default("QUEUED")
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String
-  metadata  String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  metadata   String?
+  createdAt  DateTime @default(now())
 }

@@ -51,7 +51,7 @@ export async function listDocuments(_req: AuthRequest, res: Response) {
 }
 
 export async function reindexDocument(req: AuthRequest, res: Response) {
-   await enqueueIngestion(req.params.id!);
+   await enqueueIngestion(req.params.id);
    await prisma.document.update({
       where: { id: req.params.id },
       data: { status: 'UPLOADED' },

@@ -55,19 +55,17 @@ async function runWorker() {
 
          for (let i = 0; i < chunks.length; i += 1) {
             const c = chunks[i];
-            if (c) {
-               const vector = await embed(c.content);
-               await prisma.documentChunk.create({
-                  data: {
-                     documentId: doc.id,
-                     chunkIndex: c.chunkIndex,
-                     content: c.content,
-                     embedding: JSON.stringify(vector),
-                     pageNumber: c.pageNumber,
-                     slideNumber: c.slideNumber,
-                  },
-               });
-            }
+            const vector = await embed(c.content);
+            await prisma.documentChunk.create({
+               data: {
+                  documentId: doc.id,
+                  chunkIndex: c.chunkIndex,
+                  content: c.content,
+                  embedding: JSON.stringify(vector),
+                  pageNumber: c.pageNumber,
+                  slideNumber: c.slideNumber,
+               },
+            });
             const progress = Math.min(
                95,
                55 + Math.round((i / Math.max(chunks.length, 1)) * 40)
