@@ -16,6 +16,12 @@ import {
    healthOllama,
    settings,
 } from './controllers/system.controller';
+import {
+   getProviders,
+   healthProvider,
+   updateMyProviders,
+   updateProviders,
+} from './controllers/providers.controller';
 import { requireAdmin, requireAuth } from './middleware/auth';
 import { rateLimit } from './middleware/rate-limit';
 
@@ -30,9 +36,13 @@ app.use(express.json());
 
 app.get('/api/health', health);
 app.get('/api/health/ollama', healthOllama);
+app.get('/api/health/provider', healthProvider);
 app.post('/api/auth/login', login);
 
-app.get('/api/settings', requireAuth, requireAdmin, settings);
+app.get('/api/settings', requireAuth, settings);
+app.get('/api/providers', requireAuth, getProviders);
+app.put('/api/providers', requireAuth, requireAdmin, updateProviders);
+app.put('/api/providers/me', requireAuth, updateMyProviders);
 app.get('/api/documents', requireAuth, listDocuments);
 app.post(
    '/api/documents/upload',

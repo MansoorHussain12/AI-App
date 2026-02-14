@@ -19,6 +19,8 @@ type Props = {
    uploading: boolean;
    onUpload: (file: File) => void;
    onRefresh: () => void;
+   onReindex: (id: string) => void;
+   onDelete: (id: string) => void;
 };
 
 const statusVariant = (status: string) => {
@@ -34,6 +36,8 @@ export function DocumentsPanel({
    uploading,
    onUpload,
    onRefresh,
+   onReindex,
+   onDelete,
 }: Props) {
    const fileInput = useRef<HTMLInputElement>(null);
 
@@ -88,6 +92,7 @@ export function DocumentsPanel({
                         <TableHead>Type</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Progress/Stage</TableHead>
+                        <TableHead>Actions</TableHead>
                      </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -122,6 +127,24 @@ export function DocumentsPanel({
                                  ) : (
                                     '—'
                                  )}
+                              </TableCell>
+                              <TableCell>
+                                 <div className="flex gap-2">
+                                    <Button
+                                       size="sm"
+                                       variant="outline"
+                                       onClick={() => onReindex(doc.id)}
+                                    >
+                                       Reindex
+                                    </Button>
+                                    <Button
+                                       size="sm"
+                                       variant="destructive"
+                                       onClick={() => onDelete(doc.id)}
+                                    >
+                                       Delete
+                                    </Button>
+                                 </div>
                               </TableCell>
                            </TableRow>
                         );

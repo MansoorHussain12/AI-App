@@ -25,7 +25,7 @@ export async function ragChat(req: AuthRequest, res: Response) {
          content: question,
       },
    });
-   const rag = await answerWithRag(question, docIds);
+   const rag = await answerWithRag(question, req.user.userId, docIds);
    await prisma.chatMessage.create({
       data: {
          sessionId: session.id,

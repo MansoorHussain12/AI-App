@@ -3,6 +3,7 @@ import type {
    ChatResponse,
    DocumentItem,
    HealthResponse,
+   ProviderConfigResponse,
    SettingsState,
    User,
 } from './types';
@@ -44,6 +45,18 @@ export async function uploadDocument(file: File) {
    return data;
 }
 
+export async function reindexDocument(id: string) {
+   const { data } = await api.post<{ ok: boolean }>(
+      `/api/documents/${id}/reindex`
+   );
+   return data;
+}
+
+export async function deleteDocument(id: string) {
+   const { data } = await api.delete<{ ok: boolean }>(`/api/documents/${id}`);
+   return data;
+}
+
 export async function chat(params: { question: string; docIds?: string[] }) {
    const { data } = await api.post<ChatResponse>('/api/chat', params);
    return data;
@@ -51,6 +64,27 @@ export async function chat(params: { question: string; docIds?: string[] }) {
 
 export async function getSettings() {
    const { data } = await api.get<SettingsState>('/api/settings');
+   return data;
+}
+
+export async function getProviders() {
+   const { data } = await api.get<ProviderConfigResponse>('/api/providers');
+   return data;
+}
+
+export async function updateProviders(payload: Record<string, unknown>) {
+   const { data } = await api.put<ProviderConfigResponse>(
+      '/api/providers',
+      payload
+   );
+   return data;
+}
+
+export async function updateMyProviders(payload: Record<string, unknown>) {
+   const { data } = await api.put<ProviderConfigResponse>(
+      '/api/providers/me',
+      payload
+   );
    return data;
 }
 

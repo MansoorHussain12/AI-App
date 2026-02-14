@@ -4,7 +4,8 @@ import { prisma } from '../../prisma/PrismaClient';
 import { config } from '../config';
 import { chunkBlocks } from '../utils/chunker';
 import { extractDocument } from '../utils/extractors';
-import { embed } from './ollama.service';
+import { embedWithProvider } from './model-gateway.service';
+import { getProviderConfig } from './provider-config.service';
 
 let workerRunning = false;
 
@@ -53,9 +54,14 @@ async function runWorker() {
             data: { stage: 'EMBEDDING', progress: 55 },
          });
 
+         const providerConfig = await getProviderConfig();
+
          for (let i = 0; i < chunks.length; i += 1) {
             const c = chunks[i];
-            const vector = await embed(c.content);
+            const vector = await embedWithProvider(
+               c.content,
+               providerConfig.defaultEmbedProvider
+            );
             await prisma.documentChunk.create({
                data: {
                   documentId: doc.id,

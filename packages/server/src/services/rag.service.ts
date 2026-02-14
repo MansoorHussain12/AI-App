@@ -1,6 +1,11 @@
 import { prisma } from '../../prisma/PrismaClient';
 import { config } from '../config';
-import { chat, embed } from './ollama.service';
+import {
+   chatWithProvider,
+   embedWithProvider,
+   type ChatMessage,
+} from './model-gateway.service';
+import { getEffectiveProvider } from './provider-config.service';
 
 const SYSTEM_PROMPT = `You are a factory RAG assistant. Use only provided context. If evidence is missing, say you could not find it. Do not fabricate SOP or policy details. Keep answers concise and procedural. Ask clarifying questions when the query is ambiguous.`;
 
@@ -13,8 +18,18 @@ type Citation = {
    score: number;
 };
 
-export async function answerWithRag(question: string, docIds?: string[]) {
-   const queryEmbedding = await embed(question);
+export async function answerWithRag(
+   question: string,
+   userId: string,
+   docIds?: string[]
+) {
+   const {
+      llmProvider,
+      embedProvider,
+      config: providerConfig,
+   } = await getEffectiveProvider(userId);
+
+   const queryEmbedding = await embedWithProvider(question, embedProvider);
    const where = docIds?.length ? { documentId: { in: docIds } } : undefined;
    const chunks = await prisma.documentChunk.findMany({
       where,
@@ -44,24 +59,11 @@ export async function answerWithRag(question: string, docIds?: string[]) {
             retrievalScores: scored.map((s) => s.score),
             usedChunksCount: 0,
             confidence,
+            llmProvider,
+            embedProvider,
          },
       };
    }
-
-   const context = scored
-      .map(
-         (s, i) =>
-            `[${i + 1}] ${s.chunk.document.title} (${s.chunk.pageNumber ? `page ${s.chunk.pageNumber}` : s.chunk.slideNumber ? `slide ${s.chunk.slideNumber}` : 'document'})\n${s.chunk.content}`
-      )
-      .join('\n\n');
-
-   const answer = await chat([
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-         role: 'user',
-         content: `Question: ${question}\n\nContext:\n${context}\n\nFormat response with concise answer then Sources.`,
-      },
-   ]);
 
    const citations: Citation[] = scored.slice(0, 4).map(({ chunk, score }) => ({
       docId: chunk.documentId,
@@ -76,6 +78,39 @@ export async function answerWithRag(question: string, docIds?: string[]) {
       score,
    }));
 
+   if (llmProvider === 'HF_REMOTE' && !providerConfig.allowRemoteHfContext) {
+      return {
+         answer:
+            'Hugging Face remote is selected, but sending document context is disabled by admin policy. Switch to Ollama or ask a general question without document context.',
+         citations,
+         debug: {
+            retrievalScores: scored.map((s) => s.score),
+            usedChunksCount: scored.length,
+            confidence,
+            llmProvider,
+            embedProvider,
+            remoteContextBlocked: true,
+         },
+      };
+   }
+
+   const context = scored
+      .map(
+         (s, i) =>
+            `[${i + 1}] ${s.chunk.document.title} (${s.chunk.pageNumber ? `page ${s.chunk.pageNumber}` : s.chunk.slideNumber ? `slide ${s.chunk.slideNumber}` : 'document'})\n${s.chunk.content}`
+      )
+      .join('\n\n');
+
+   const messages: ChatMessage[] = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      {
+         role: 'user',
+         content: `Question: ${question}\n\nContext:\n${context}\n\nFormat response with concise answer then Sources.`,
+      },
+   ];
+
+   const answer = await chatWithProvider(messages, llmProvider);
+
    return {
       answer,
       citations,
@@ -83,6 +118,8 @@ export async function answerWithRag(question: string, docIds?: string[]) {
          retrievalScores: scored.map((s) => s.score),
          usedChunksCount: scored.length,
          confidence,
+         llmProvider,
+         embedProvider,
       },
    };
 }

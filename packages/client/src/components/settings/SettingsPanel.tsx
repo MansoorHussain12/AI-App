@@ -1,29 +1,58 @@
 import { AlertTriangle, PlugZap } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api';
-import type { HealthResponse, SettingsState } from '@/lib/types';
+import type {
+   HealthResponse,
+   ProviderConfigResponse,
+   SettingsState,
+} from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+} from '@/components/ui/select';
 
 type Props = {
    settings?: SettingsState;
+   providers?: ProviderConfigResponse;
    settingsLoading: boolean;
+   isAdmin: boolean;
    onLoadSettings: () => void;
    onTestConnectivity: () => void;
+   onSaveSystem: (payload: Record<string, unknown>) => void;
+   onSaveMine: (payload: Record<string, unknown>) => void;
    health?: HealthResponse;
 };
 
 export function SettingsPanel({
    settings,
+   providers,
    settingsLoading,
+   isAdmin,
    onLoadSettings,
    onTestConnectivity,
+   onSaveSystem,
+   onSaveMine,
    health,
 }: Props) {
+   const currentLlm =
+      providers?.effective?.llmProvider ??
+      providers?.llmProvider ??
+      providers?.defaultLlmProvider ??
+      'OLLAMA';
+   const currentEmbed =
+      providers?.effective?.embedProvider ??
+      providers?.embedProvider ??
+      providers?.defaultEmbedProvider ??
+      'OLLAMA';
    const remoteSelected =
-      settings?.llmProvider === 'hf_remote' ||
-      settings?.embedProvider === 'hf_remote';
-   const localMissing = settings?.hfLocalStatus === 'HF Local model not found';
+      currentLlm === 'HF_REMOTE' || currentEmbed === 'HF_REMOTE';
 
    return (
       <div className="space-y-4">
@@ -41,22 +70,121 @@ export function SettingsPanel({
                   </Button>
                   <Button onClick={onTestConnectivity}>
                      <PlugZap className="h-4 w-4" />
-                     Test connectivity
+                     Test providers
                   </Button>
                </div>
                <p className="text-sm text-muted-foreground">
                   API endpoint: {API_BASE_URL}
                </p>
-               {remoteSelected ? (
-                  <p className="flex items-center gap-2 text-sm font-medium text-destructive">
-                     <AlertTriangle className="h-4 w-4" />
-                     This may send data outside the factory network.
-                  </p>
+
+               <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                     <Label>LLM Provider</Label>
+                     <Select
+                        value={currentLlm}
+                        onValueChange={(value: string) =>
+                           onSaveMine({ llmProvider: value })
+                        }
+                     >
+                        <SelectTrigger>
+                           <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="OLLAMA">
+                              Ollama (Offline)
+                           </SelectItem>
+                           <SelectItem value="HF_REMOTE">
+                              Hugging Face Online
+                           </SelectItem>
+                        </SelectContent>
+                     </Select>
+                  </div>
+                  <div>
+                     <Label>Embedding Provider</Label>
+                     <Select
+                        value={currentEmbed}
+                        onValueChange={(value: string) =>
+                           onSaveMine({ embedProvider: value })
+                        }
+                     >
+                        <SelectTrigger>
+                           <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="OLLAMA">
+                              Ollama (Offline)
+                           </SelectItem>
+                           <SelectItem value="HF_REMOTE">
+                              Hugging Face Online
+                           </SelectItem>
+                        </SelectContent>
+                     </Select>
+                  </div>
+               </div>
+
+               {isAdmin ? (
+                  <div className="space-y-2 rounded-md border p-3">
+                     <p className="text-sm font-medium">
+                        System defaults (admin)
+                     </p>
+                     <div className="grid gap-2 md:grid-cols-2">
+                        <Button
+                           variant="outline"
+                           onClick={() =>
+                              onSaveSystem({
+                                 allowRemoteHf: !(
+                                    providers?.allowRemoteHf ?? false
+                                 ),
+                              })
+                           }
+                        >
+                           Allow remote HF:{' '}
+                           {providers?.allowRemoteHf ? 'ON' : 'OFF'}
+                        </Button>
+                        <Button
+                           variant="outline"
+                           onClick={() =>
+                              onSaveSystem({
+                                 allowRemoteHfContext: !(
+                                    providers?.allowRemoteHfContext ?? false
+                                 ),
+                              })
+                           }
+                        >
+                           Allow remote context:{' '}
+                           {providers?.allowRemoteHfContext ? 'ON' : 'OFF'}
+                        </Button>
+                     </div>
+                     <Input
+                        placeholder="HF chat model"
+                        defaultValue={providers?.hfChatModel ?? ''}
+                        onBlur={(e) =>
+                           onSaveSystem({ hfChatModel: e.target.value })
+                        }
+                     />
+                     <Input
+                        placeholder="HF embed model (optional)"
+                        defaultValue={providers?.hfEmbedModel ?? ''}
+                        onBlur={(e) =>
+                           onSaveSystem({ hfEmbedModel: e.target.value })
+                        }
+                     />
+                     <Input
+                        placeholder="HF API token"
+                        type="password"
+                        onBlur={(e) =>
+                           e.target.value &&
+                           onSaveSystem({ hfApiToken: e.target.value })
+                        }
+                     />
+                  </div>
                ) : null}
-               {localMissing ? (
+
+               {remoteSelected && providers?.allowRemoteHfContext ? (
                   <p className="flex items-center gap-2 text-sm font-medium text-destructive">
                      <AlertTriangle className="h-4 w-4" />
-                     HF Local model not found.
+                     Warning: remote provider may receive retrieved document
+                     context.
                   </p>
                ) : null}
             </CardContent>
@@ -64,7 +192,7 @@ export function SettingsPanel({
 
          <Card>
             <CardHeader>
-               <CardTitle>Current config</CardTitle>
+               <CardTitle>Current settings payload</CardTitle>
             </CardHeader>
             <CardContent>
                <pre className="overflow-x-auto rounded-md border bg-muted p-3 text-xs">

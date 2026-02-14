@@ -1,15 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import {
    chat,
+   deleteDocument,
    getDocuments,
+   getProviders,
    getSettings,
    healthOllama,
    healthProvider,
    login,
+   reindexDocument,
    setAuthToken,
+   updateMyProviders,
+   updateProviders,
    uploadDocument,
 } from '@/lib/api';
 import type { Citation, User } from '@/lib/types';
@@ -30,7 +35,9 @@ function App() {
    const [citations, setCitations] = useState<Citation[]>([]);
    const [loginError, setLoginError] = useState('');
 
-   setAuthToken(token);
+   useEffect(() => {
+      setAuthToken(token);
+   }, [token]);
 
    const documentsQuery = useQuery({
       queryKey: ['documents', token],
@@ -42,6 +49,12 @@ function App() {
       queryKey: ['settings', token],
       queryFn: getSettings,
       enabled: false,
+   });
+
+   const providersQuery = useQuery({
+      queryKey: ['providers', token],
+      queryFn: getProviders,
+      enabled: Boolean(token),
    });
 
    const healthQuery = useQuery({
@@ -84,6 +97,24 @@ function App() {
       onError: () => toast.error('Upload failed'),
    });
 
+   const reindexMutation = useMutation({
+      mutationFn: reindexDocument,
+      onSuccess: async () => {
+         toast.success('Reindex requested');
+         await queryClient.invalidateQueries({ queryKey: ['documents'] });
+      },
+      onError: () => toast.error('Reindex failed'),
+   });
+
+   const deleteMutation = useMutation({
+      mutationFn: deleteDocument,
+      onSuccess: async () => {
+         toast.success('Document deleted');
+         await queryClient.invalidateQueries({ queryKey: ['documents'] });
+      },
+      onError: () => toast.error('Delete failed'),
+   });
+
    const chatMutation = useMutation({
       mutationFn: chat,
       onSuccess: (data) => {
@@ -91,6 +122,32 @@ function App() {
          setCitations(data.citations);
       },
       onError: () => toast.error('Chat failed'),
+   });
+
+   const saveSystemProvidersMutation = useMutation({
+      mutationFn: (payload: Record<string, unknown>) =>
+         updateProviders(payload),
+      onSuccess: async () => {
+         toast.success('Provider config saved');
+         await providersQuery.refetch();
+      },
+      onError: (error: AxiosError<{ error?: string }>) =>
+         toast.error(
+            error.response?.data?.error ?? 'Failed to save provider config'
+         ),
+   });
+
+   const saveMyProvidersMutation = useMutation({
+      mutationFn: (payload: Record<string, unknown>) =>
+         updateMyProviders(payload),
+      onSuccess: async () => {
+         toast.success('Preference saved');
+         await providersQuery.refetch();
+      },
+      onError: (error: AxiosError<{ error?: string }>) =>
+         toast.error(
+            error.response?.data?.error ?? 'Failed to save preference'
+         ),
    });
 
    const isAdmin = user?.role === 'ADMIN';
@@ -112,7 +169,9 @@ function App() {
          <LoginCard
             loading={loginMutation.isPending}
             error={loginError}
-            onSubmit={async (values) => loginMutation.mutateAsync(values)}
+            onSubmit={async (values) => {
+               await loginMutation.mutateAsync(values);
+            }}
          />
       );
    }
@@ -175,22 +234,32 @@ function App() {
                   uploading={uploadMutation.isPending}
                   onUpload={(file) => uploadMutation.mutate(file)}
                   onRefresh={() => documentsQuery.refetch()}
+                  onReindex={(id) => reindexMutation.mutate(id)}
+                  onDelete={(id) => deleteMutation.mutate(id)}
                />
             ) : null}
 
-            {activeTab === 'settings' && isAdmin ? (
+            {activeTab === 'settings' ? (
                <SettingsPanel
                   settings={settingsQuery.data}
+                  providers={providersQuery.data}
                   settingsLoading={settingsQuery.isFetching}
-                  onLoadSettings={() => void settingsQuery.refetch()}
-                  onTestConnectivity={async () => {
-                     try {
-                        await healthQuery.refetch();
-                        toast.success('Connectivity OK');
-                     } catch {
-                        toast.error('Connectivity test failed');
-                     }
+                  isAdmin={isAdmin}
+                  onLoadSettings={async () => {
+                     await settingsQuery.refetch();
+                     await providersQuery.refetch();
                   }}
+                  onTestConnectivity={async () => {
+                     await healthQuery.refetch();
+                     if (healthQuery.data?.ok) toast.success('Connectivity OK');
+                     else toast.error('Connectivity test failed');
+                  }}
+                  onSaveSystem={(payload) =>
+                     saveSystemProvidersMutation.mutate(payload)
+                  }
+                  onSaveMine={(payload) =>
+                     saveMyProvidersMutation.mutate(payload)
+                  }
                   health={healthQuery.data}
                />
             ) : null}

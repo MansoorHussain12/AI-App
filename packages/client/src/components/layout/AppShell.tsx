@@ -69,14 +69,12 @@ export function AppShell({
                         Documents
                      </Button>
                   ) : null}
-                  {isAdmin ? (
-                     <Button
-                        variant={activeTab === 'settings' ? 'default' : 'ghost'}
-                        onClick={() => setActiveTab('settings')}
-                     >
-                        Settings
-                     </Button>
-                  ) : null}
+                  <Button
+                     variant={activeTab === 'settings' ? 'default' : 'ghost'}
+                     onClick={() => setActiveTab('settings')}
+                  >
+                     Settings
+                  </Button>
                </nav>
                <Separator className="my-2" />
                <p className="px-2 text-xs text-muted-foreground">

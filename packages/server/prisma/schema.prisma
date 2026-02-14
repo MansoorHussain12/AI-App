@@ -27,15 +27,42 @@ enum JobStatus {
   FAILED
 }
 
+enum ProviderKind {
+  OLLAMA
+  HF_REMOTE
+}
+
 model User {
-  id           String        @id @default(cuid())
-  username     String        @unique
+  id           String                 @id @default(cuid())
+  username     String                 @unique
   passwordHash String
-  role         Role          @default(USER)
-  createdAt    DateTime      @default(now())
+  role         Role                   @default(USER)
+  createdAt    DateTime               @default(now())
   sessions     ChatSession[]
   messages     ChatMessage[]
   auditLogs    AuditLog[]
+  documents    Document[]
+  providerPreference UserProviderPreference?
+}
+
+model ProviderConfig {
+  id                    String       @id @default("singleton")
+  defaultLlmProvider    ProviderKind @default(OLLAMA)
+  defaultEmbedProvider  ProviderKind @default(OLLAMA)
+  allowRemoteHf         Boolean      @default(false)
+  allowRemoteHfContext  Boolean      @default(false)
+  hfApiToken            String?
+  hfChatModel           String?
+  hfEmbedModel          String?
+  updatedAt             DateTime     @updatedAt
+}
+
+model UserProviderPreference {
+  userId        String       @id
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  llmProvider   ProviderKind?
+  embedProvider ProviderKind?
+  updatedAt     DateTime     @updatedAt
 }
 
 model Document {
@@ -56,28 +83,28 @@ model Document {
 }
 
 model DocumentChunk {
-  id           String   @id @default(cuid())
-  documentId   String
-  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  chunkIndex   Int
-  content      String
-  embedding    String
-  pageNumber   Int?
-  slideNumber  Int?
+  id             String   @id @default(cuid())
+  documentId     String
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex     Int
+  content        String
+  embedding      String
+  pageNumber     Int?
+  slideNumber    Int?
   sectionHeading String?
-  createdAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([documentId, chunkIndex])
 }
 
 model ChatSession {
-  id         String        @id @default(cuid())
-  title      String?
-  userId     String
-  user       User          @relation(fields: [userId], references: [id])
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  messages   ChatMessage[]
+  id        String        @id @default(cuid())
+  title     String?
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
 }
 
 model ChatMessage {
@@ -93,22 +120,22 @@ model ChatMessage {
 }
 
 model IngestionJob {
-  id          String    @id @default(cuid())
-  documentId  String
-  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  status      JobStatus @default(PENDING)
-  progress    Int       @default(0)
-  stage       String    @default("QUEUED")
-  error       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  documentId String
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  status     JobStatus @default(PENDING)
+  progress   Int       @default(0)
+  stage      String    @default("QUEUED")
+  error      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  action     String
-  metadata   String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  metadata  String?
+  createdAt DateTime @default(now())
 }

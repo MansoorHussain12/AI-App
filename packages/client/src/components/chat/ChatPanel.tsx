@@ -105,7 +105,7 @@ export function ChatPanel({
                         <Dialog
                            key={c.chunkId}
                            open={openCitation?.chunkId === c.chunkId}
-                           onOpenChange={(open) =>
+                           onOpenChange={(open: boolean) =>
                               setOpenCitation(open ? c : null)
                            }
                         >
