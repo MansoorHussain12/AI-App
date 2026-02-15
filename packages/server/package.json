@@ -1,29 +1,41 @@
 {
-   "name": "server",
-   "module": "index.ts",
-   "type": "module",
-   "private": true,
-   "scripts": {
-      "start": "bun run index.ts",
-      "dev": "bun --watch run index.ts"
-   },
-   "devDependencies": {
-      "@types/bun": "latest",
-      "@types/express": "^5.0.5",
-      "prisma": "^7.3.0"
-   },
-   "peerDependencies": {
-      "typescript": "^5"
-   },
-   "dependencies": {
-      "@huggingface/inference": "^4.13.11",
-      "@prisma/adapter-mariadb": "^7.3.0",
-      "@prisma/client": "^7.3.0",
-      "dayjs": "^1.11.19",
-      "dotenv": "^17.2.3",
-      "express": "^5.1.0",
-      "ollama": "^0.6.3",
-      "openai": "^6.15.0",
-      "zod": "^4.2.1"
-   }
+  "name": "server",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun --watch run index.ts",
+    "test": "bun test",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/express": "^5.0.5",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
+    "prisma": "^7.3.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.3.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.19",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.11.0",
+    "multer": "^2.0.2",
+    "ollama": "^0.6.3",
+    "pdf-parse": "^1.1.1",
+    "pizzip": "^3.2.0",
+    "zod": "^4.2.1",
+    "llamaindex": "^0.6.16",
+    "@llamaindex/readers": "^0.2.6",
+    "@qdrant/js-client-rest": "^1.13.0"
+  }
 }

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
 import 'react-loading-skeleton/dist/skeleton.css';
 import App from './App.tsx';
+import { Toaster } from '@/components/ui/sonner';
 
 const queryClient = new QueryClient();
 
@@ -11,6 +12,7 @@ createRoot(document.getElementById('root')!).render(
    <StrictMode>
       <QueryClientProvider client={queryClient}>
          <App />
+         <Toaster richColors closeButton />
       </QueryClientProvider>
    </StrictMode>
 );

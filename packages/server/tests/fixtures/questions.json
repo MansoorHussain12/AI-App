@@ -1,0 +1,10 @@
+{
+  "answerable": {
+    "question": "What is the lockout tagout procedure?",
+    "expectsCitation": true
+  },
+  "unanswerable": {
+    "question": "What is the annual Mars base maintenance schedule?",
+    "expectsRefusal": true
+  }
+}
