@@ -2,10 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from '../../prisma/PrismaClient';
 import { config } from '../config';
-import { chunkBlocks } from '../utils/chunker';
-import { extractDocument } from '../utils/extractors';
-import { embedWithProvider } from './model-gateway.service';
-import { getProviderConfig } from './provider-config.service';
+import {
+   deleteDocumentVectors,
+   ingestDocument,
+} from './rag/llamaindex.service';
 
 let workerRunning = false;
 
@@ -24,72 +24,31 @@ async function runWorker() {
          orderBy: { createdAt: 'asc' },
       });
       if (!job) break;
+
       try {
          await prisma.ingestionJob.update({
             where: { id: job.id },
-            data: { status: 'RUNNING', stage: 'EXTRACTING', progress: 10 },
+            data: { status: 'RUNNING', stage: 'EXTRACT', progress: 5 },
          });
-         await prisma.document.update({
-            where: { id: job.documentId },
-            data: { status: 'PROCESSING', errorMessage: null },
-         });
+
          const doc = await prisma.document.findUniqueOrThrow({
             where: { id: job.documentId },
          });
-         const blocks = await extractDocument(doc.storagePath, doc.sourceType);
-         await prisma.ingestionJob.update({
-            where: { id: job.id },
-            data: { stage: 'CHUNKING', progress: 35 },
-         });
-         const chunks = chunkBlocks(
-            blocks,
-            config.chunkSize,
-            config.chunkOverlap
-         );
-         await prisma.documentChunk.deleteMany({
-            where: { documentId: doc.id },
-         });
-         await prisma.ingestionJob.update({
-            where: { id: job.id },
-            data: { stage: 'EMBEDDING', progress: 55 },
-         });
-
-         const providerConfig = await getProviderConfig();
-
-         for (let i = 0; i < chunks.length; i += 1) {
-            const c = chunks[i];
-            const vector = await embedWithProvider(
-               c.content,
-               providerConfig.defaultEmbedProvider
-            );
-            await prisma.documentChunk.create({
-               data: {
-                  documentId: doc.id,
-                  chunkIndex: c.chunkIndex,
-                  content: c.content,
-                  embedding: JSON.stringify(vector),
-                  pageNumber: c.pageNumber,
-                  slideNumber: c.slideNumber,
-               },
-            });
-            const progress = Math.min(
-               95,
-               55 + Math.round((i / Math.max(chunks.length, 1)) * 40)
-            );
-            await prisma.ingestionJob.update({
-               where: { id: job.id },
-               data: { progress },
-            });
-         }
 
          await prisma.document.update({
             where: { id: doc.id },
-            data: { status: 'INDEXED' },
+            data: { status: 'PROCESSING', errorMessage: null },
          });
-         await prisma.ingestionJob.update({
-            where: { id: job.id },
-            data: { status: 'COMPLETED', stage: 'DONE', progress: 100 },
-         });
+
+         await ingestDocument(
+            {
+               documentId: doc.id,
+               filePath: doc.storagePath,
+               sourceType: doc.sourceType,
+               title: doc.title,
+            },
+            job.id
+         );
       } catch (error) {
          const message =
             error instanceof Error ? error.message : 'Unknown ingestion error';
@@ -106,6 +65,11 @@ async function runWorker() {
    workerRunning = false;
 }
 
+export async function removeDocumentFromIndex(documentId: string) {
+   await deleteDocumentVectors(documentId);
+}
+
 export async function ensureDataDirectories() {
    await fs.mkdir(path.join(config.dataDir, 'uploads'), { recursive: true });
+   await fs.mkdir(path.join(config.dataDir, 'qdrant'), { recursive: true });
 }

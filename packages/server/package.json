@@ -33,6 +33,9 @@
     "ollama": "^0.6.3",
     "pdf-parse": "^1.1.1",
     "pizzip": "^3.2.0",
-    "zod": "^4.2.1"
+    "zod": "^4.2.1",
+    "llamaindex": "^0.6.16",
+    "@llamaindex/readers": "^0.2.6",
+    "@qdrant/js-client-rest": "^1.13.0"
   }
 }

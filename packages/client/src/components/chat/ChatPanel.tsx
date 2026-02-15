@@ -24,6 +24,8 @@ type Props = {
    asking: boolean;
    answer: string;
    citations: Citation[];
+   debug?: Record<string, unknown>;
+   showDebug?: boolean;
 };
 
 export function ChatPanel({
@@ -36,6 +38,8 @@ export function ChatPanel({
    asking,
    answer,
    citations,
+   debug,
+   showDebug,
 }: Props) {
    const [openCitation, setOpenCitation] = useState<Citation | null>(null);
 
@@ -87,6 +91,11 @@ export function ChatPanel({
                   <Button onClick={onAsk} disabled={!question.trim() || asking}>
                      {asking ? 'Asking...' : 'Ask'}
                   </Button>
+                  {showDebug && debug ? (
+                     <pre className="overflow-x-auto rounded-md border bg-muted p-3 text-xs">
+                        {JSON.stringify(debug, null, 2)}
+                     </pre>
+                  ) : null}
                </CardContent>
             </Card>
 
@@ -129,6 +138,11 @@ export function ChatPanel({
                         </Dialog>
                      ))}
                   </div>
+                  {showDebug && debug ? (
+                     <pre className="overflow-x-auto rounded-md border bg-muted p-3 text-xs">
+                        {JSON.stringify(debug, null, 2)}
+                     </pre>
+                  ) : null}
                </CardContent>
             </Card>
          </div>

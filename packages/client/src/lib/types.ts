@@ -40,6 +40,7 @@ export type SettingsState = Record<string, string | number | boolean | null>;
 export type ChatResponse = {
    answer: string;
    citations: Citation[];
+   debug?: Record<string, unknown>;
    sessionId?: string;
 };
 
@@ -50,5 +51,6 @@ export type HealthResponse = {
    embedProvider?: ProviderKind;
    allowRemoteHf?: boolean;
    allowRemoteHfContext?: boolean;
+   qdrant?: { ok: boolean; url?: string; collection?: string; error?: string };
    provider?: Record<string, unknown>;
 };

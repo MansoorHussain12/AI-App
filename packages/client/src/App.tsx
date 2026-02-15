@@ -33,6 +33,7 @@ function App() {
    const [question, setQuestion] = useState('');
    const [answer, setAnswer] = useState('');
    const [citations, setCitations] = useState<Citation[]>([]);
+   const [chatDebug, setChatDebug] = useState<Record<string, unknown>>({});
    const [loginError, setLoginError] = useState('');
 
    useEffect(() => {
@@ -120,6 +121,7 @@ function App() {
       onSuccess: (data) => {
          setAnswer(data.answer);
          setCitations(data.citations);
+         setChatDebug(data.debug ?? {});
       },
       onError: () => toast.error('Chat failed'),
    });
@@ -224,6 +226,8 @@ function App() {
                   asking={chatMutation.isPending}
                   answer={answer}
                   citations={citations}
+                  debug={chatDebug}
+                  showDebug={isAdmin}
                />
             ) : null}
 

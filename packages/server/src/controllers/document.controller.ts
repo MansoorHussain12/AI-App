@@ -4,7 +4,10 @@ import type { Response } from 'express';
 import { prisma } from '../../prisma/PrismaClient';
 import { config } from '../config';
 import type { AuthRequest } from '../middleware/auth';
-import { enqueueIngestion } from '../services/ingestion.service';
+import {
+   enqueueIngestion,
+   removeDocumentFromIndex,
+} from '../services/ingestion.service';
 import { inferSourceType } from '../utils/extractors';
 
 export async function uploadDocument(req: AuthRequest, res: Response) {
@@ -64,6 +67,7 @@ export async function deleteDocument(req: AuthRequest, res: Response) {
       where: { id: req.params.id },
    });
    if (!doc) return res.status(404).json({ error: 'Not found' });
+   await removeDocumentFromIndex(doc.id);
    await fs.rm(path.dirname(doc.storagePath), { recursive: true, force: true });
    await prisma.document.delete({ where: { id: doc.id } });
    res.json({ ok: true });

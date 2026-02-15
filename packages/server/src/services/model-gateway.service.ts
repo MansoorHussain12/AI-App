@@ -1,6 +1,7 @@
 import ollama from 'ollama';
 import { config } from '../config';
 import { getProviderConfig } from './provider-config.service';
+import { qdrantHealth } from './rag/qdrant.service';
 
 export type ChatMessage = {
    role: 'system' | 'user' | 'assistant';
@@ -141,13 +142,16 @@ export async function healthCheckProvider(deep = false) {
       ollamaInfo.ok = false;
    }
 
+   const qdrant = await qdrantHealth();
+
    const payload: Record<string, unknown> = {
-      ok: ollamaInfo.ok,
+      ok: ollamaInfo.ok && qdrant.ok,
       llmProvider: providerConfig.defaultLlmProvider,
       embedProvider: providerConfig.defaultEmbedProvider,
       allowRemoteHf: providerConfig.allowRemoteHf,
       allowRemoteHfContext: providerConfig.allowRemoteHfContext,
       ollama: ollamaInfo,
+      qdrant,
    };
 
    if (

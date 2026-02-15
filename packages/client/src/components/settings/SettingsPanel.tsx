@@ -76,6 +76,9 @@ export function SettingsPanel({
                <p className="text-sm text-muted-foreground">
                   API endpoint: {API_BASE_URL}
                </p>
+               <p className="text-sm text-muted-foreground">
+                  Qdrant: {health?.qdrant?.ok ? 'Connected' : 'Unavailable'}
+               </p>
 
                <div className="grid gap-3 md:grid-cols-2">
                   <div>
